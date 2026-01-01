@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoxCPM TTS</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #111113;
+            --bg-tertiary: #1a1a1d;
+            --border: #2a2a2e;
+            --text-primary: #e8e8ea;
+            --text-secondary: #8a8a8f;
+            --accent: #00d4aa;
+            --accent-dim: #00a88a;
+            --accent-glow: rgba(0, 212, 170, 0.15);
+            --error: #ff6b6b;
+            --success: #00d4aa;
+        }
+
+        body {
+            font-family: 'Outfit', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+            background-image: 
+                radial-gradient(ellipse at top, rgba(0, 212, 170, 0.03) 0%, transparent 50%),
+                radial-gradient(ellipse at bottom right, rgba(0, 100, 200, 0.02) 0%, transparent 50%);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 640px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+        }
+
+        h1 span {
+            color: var(--accent);
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.25rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 1rem;
+            line-height: 1.6;
+            resize: vertical;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        textarea::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex: 1;
+        }
+
+        .speed-control input[type="range"] {
+            flex: 1;
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            appearance: none;
+            cursor: pointer;
+        }
+
+        .speed-control input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+
+        .speed-control input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        .speed-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--accent);
+            min-width: 3ch;
+        }
+
+        button {
+            font-family: inherit;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: var(--bg-primary);
+            border: none;
+            padding: 0.875rem 2rem;
+            border-radius: 10px;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--accent-dim);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .btn-stop {
+            background: var(--error);
+        }
+
+        .btn-stop:hover:not(:disabled) {
+            background: #e55555;
+        }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .audio-section {
+            display: none;
+        }
+
+        .audio-section.visible {
+            display: block;
+        }
+
+        .waveform-container {
+            height: 60px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .waveform {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            height: 100%;
+            padding: 0 1rem;
+        }
+
+        .waveform-bar {
+            width: 3px;
+            background: var(--accent);
+            border-radius: 2px;
+            transition: height 0.1s ease;
+        }
+
+        .waveform-bar.active {
+            animation: pulse 0.3s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        .streaming-indicator {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: var(--accent);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .streaming-indicator.active {
+            opacity: 1;
+        }
+
+        .streaming-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .audio-player {
+            width: 100%;
+            height: 48px;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+
+        .metric {
+            text-align: center;
+            padding: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+        }
+
+        .metric-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 0.25rem;
+        }
+
+        .metric-value.warning {
+            color: #ffa500;
+        }
+
+        .metric-value.error {
+            color: var(--error);
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .status {
+            text-align: center;
+            padding: 0.75rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .status.visible {
+            display: block;
+        }
+
+        .status.error {
+            background: rgba(255, 107, 107, 0.1);
+            color: var(--error);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+        }
+
+        .status.success {
+            background: var(--accent-glow);
+            color: var(--accent);
+            border: 1px solid rgba(0, 212, 170, 0.2);
+        }
+
+        .status.streaming {
+            background: rgba(0, 150, 255, 0.1);
+            color: #4da6ff;
+            border: 1px solid rgba(0, 150, 255, 0.2);
+        }
+
+        footer {
+            margin-top: 2rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Vox<span>CPM</span> TTS</h1>
+            <p class="subtitle">OpenAI-compatible streaming text-to-speech</p>
+        </header>
+
+        <div class="card">
+            <div class="input-group">
+                <label for="text-input">Text to synthesize</label>
+                <textarea 
+                    id="text-input" 
+                    placeholder="Enter text to convert to speech..."
+                >VoxCPM is an innovative end-to-end TTS model designed for highly expressive speech synthesis.</textarea>
+            </div>
+
+            <div class="controls">
+                <div class="speed-control">
+                    <label style="margin: 0; min-width: fit-content;">Speed</label>
+                    <input type="range" id="speed" min="0.5" max="2" step="0.1" value="1">
+                    <span class="speed-value" id="speed-value">1.0</span>
+                </div>
+                <button class="btn-primary" id="generate-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    Generate
+                </button>
+            </div>
+        </div>
+
+        <div class="card audio-section" id="audio-section">
+            <div class="waveform-container">
+                <div class="waveform" id="waveform"></div>
+                <div class="streaming-indicator" id="streaming-indicator">
+                    <div class="streaming-dot"></div>
+                    <span>Streaming</span>
+                </div>
+            </div>
+            
+            <div class="metrics">
+                <div class="metric">
+                    <div class="metric-value" id="metric-latency">--</div>
+                    <div class="metric-label">First byte (ms)</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="metric-rtf">--</div>
+                    <div class="metric-label">RTF</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="metric-duration">--</div>
+                    <div class="metric-label">Duration (s)</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status" id="status"></div>
+
+        <footer>
+            Powered by <a href="https://github.com/OpenBMB/VoxCPM" target="_blank">VoxCPM</a>
+        </footer>
+    </div>
+
+    <script>
+        const textInput = document.getElementById('text-input');
+        const speedSlider = document.getElementById('speed');
+        const speedValue = document.getElementById('speed-value');
+        const generateBtn = document.getElementById('generate-btn');
+        const audioSection = document.getElementById('audio-section');
+        const waveformDiv = document.getElementById('waveform');
+        const streamingIndicator = document.getElementById('streaming-indicator');
+        const statusDiv = document.getElementById('status');
+        const metricLatency = document.getElementById('metric-latency');
+        const metricRtf = document.getElementById('metric-rtf');
+        const metricDuration = document.getElementById('metric-duration');
+
+        // Audio context and state
+        let audioContext = null;
+        let isPlaying = false;
+        let abortController = null;
+
+        // Waveform visualization
+        const NUM_BARS = 40;
+        function initWaveform() {
+            waveformDiv.innerHTML = '';
+            for (let i = 0; i < NUM_BARS; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'waveform-bar';
+                bar.style.height = '4px';
+                waveformDiv.appendChild(bar);
+            }
+        }
+        initWaveform();
+
+        function updateWaveform(audioData) {
+            const bars = waveformDiv.querySelectorAll('.waveform-bar');
+            const samplesPerBar = Math.floor(audioData.length / NUM_BARS);
+            
+            for (let i = 0; i < NUM_BARS; i++) {
+                let sum = 0;
+                const start = i * samplesPerBar;
+                for (let j = 0; j < samplesPerBar && start + j < audioData.length; j++) {
+                    sum += Math.abs(audioData[start + j]);
+                }
+                const avg = sum / samplesPerBar;
+                const height = Math.max(4, Math.min(50, avg * 100));
+                bars[i].style.height = `${height}px`;
+                bars[i].classList.add('active');
+                setTimeout(() => bars[i].classList.remove('active'), 100);
+            }
+        }
+
+        function resetWaveform() {
+            const bars = waveformDiv.querySelectorAll('.waveform-bar');
+            bars.forEach(bar => {
+                bar.style.height = '4px';
+            });
+        }
+
+        // Update speed display
+        speedSlider.addEventListener('input', () => {
+            speedValue.textContent = parseFloat(speedSlider.value).toFixed(1);
+        });
+
+        // Streaming audio player using Web Audio API
+        class StreamingAudioPlayer {
+            constructor(sampleRate) {
+                this.sampleRate = sampleRate;
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate });
+                this.nextPlayTime = 0;
+                this.isStarted = false;
+                this.totalSamples = 0;
+                this.gainNode = this.audioContext.createGain();
+                this.gainNode.connect(this.audioContext.destination);
+            }
+
+            // Schedule a chunk of PCM audio for playback
+            playChunk(int16Array) {
+                // Convert Int16 to Float32
+                const float32Array = new Float32Array(int16Array.length);
+                for (let i = 0; i < int16Array.length; i++) {
+                    float32Array[i] = int16Array[i] / 32768.0;
+                }
+
+                // Create audio buffer
+                const audioBuffer = this.audioContext.createBuffer(1, float32Array.length, this.sampleRate);
+                audioBuffer.getChannelData(0).set(float32Array);
+
+                // Create buffer source
+                const source = this.audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(this.gainNode);
+
+                // Schedule playback
+                const currentTime = this.audioContext.currentTime;
+                if (!this.isStarted || this.nextPlayTime < currentTime) {
+                    this.nextPlayTime = currentTime;
+                    this.isStarted = true;
+                }
+
+                source.start(this.nextPlayTime);
+                this.nextPlayTime += audioBuffer.duration;
+                this.totalSamples += float32Array.length;
+
+                // Update waveform visualization
+                updateWaveform(float32Array);
+
+                return audioBuffer.duration;
+            }
+
+            getDuration() {
+                return this.totalSamples / this.sampleRate;
+            }
+
+            async close() {
+                // Wait for remaining audio to finish
+                const remaining = this.nextPlayTime - this.audioContext.currentTime;
+                if (remaining > 0) {
+                    await new Promise(resolve => setTimeout(resolve, remaining * 1000));
+                }
+                await this.audioContext.close();
+            }
+
+            stop() {
+                this.audioContext.close();
+            }
+        }
+
+        // Generate speech with streaming playback
+        generateBtn.addEventListener('click', async () => {
+            const text = textInput.value.trim();
+            if (!text) {
+                showStatus('Please enter some text', 'error');
+                return;
+            }
+
+            // If already playing, stop
+            if (isPlaying && abortController) {
+                abortController.abort();
+                return;
+            }
+
+            // Disable button and show loading state
+            isPlaying = true;
+            abortController = new AbortController();
+            generateBtn.classList.add('btn-stop');
+            generateBtn.innerHTML = '<div class="spinner"></div> Streaming...';
+            hideStatus();
+            resetWaveform();
+
+            const startTime = performance.now();
+            let firstByteTime = null;
+            let player = null;
+            let totalDuration = 0;
+
+            try {
+                const response = await fetch('/v1/audio/speech', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: 'tts-1',
+                        input: text,
+                        voice: 'default',
+                        response_format: 'pcm',  // Raw PCM for streaming
+                        speed: parseFloat(speedSlider.value),
+                    }),
+                    signal: abortController.signal,
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to generate speech');
+                }
+
+                // Get sample rate from header
+                const sampleRate = parseInt(response.headers.get('X-Sample-Rate') || '44100');
+                
+                // Create streaming player
+                player = new StreamingAudioPlayer(sampleRate);
+                
+                // Show audio section and streaming indicator
+                audioSection.classList.add('visible');
+                streamingIndicator.classList.add('active');
+                showStatus('Streaming audio...', 'streaming');
+
+                // Read and play streaming response
+                const reader = response.body.getReader();
+                let buffer = new Uint8Array(0);
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    
+                    if (done) break;
+                    
+                    if (firstByteTime === null) {
+                        firstByteTime = performance.now() - startTime;
+                        metricLatency.textContent = Math.round(firstByteTime);
+                        metricLatency.className = 'metric-value' + (firstByteTime > 1000 ? ' error' : firstByteTime > 500 ? ' warning' : '');
+                    }
+
+                    // Append to buffer
+                    const newBuffer = new Uint8Array(buffer.length + value.length);
+                    newBuffer.set(buffer);
+                    newBuffer.set(value, buffer.length);
+                    buffer = newBuffer;
+
+                    // Process complete samples (2 bytes per sample for Int16)
+                    const completeBytes = Math.floor(buffer.length / 2) * 2;
+                    if (completeBytes > 0) {
+                        const int16Data = new Int16Array(buffer.buffer.slice(0, completeBytes));
+                        const chunkDuration = player.playChunk(int16Data);
+                        totalDuration += chunkDuration;
+                        
+                        // Update duration metric in real-time
+                        metricDuration.textContent = totalDuration.toFixed(1);
+                        
+                        // Keep remaining bytes
+                        buffer = buffer.slice(completeBytes);
+                    }
+                }
+
+                const totalTime = performance.now() - startTime;
+                const rtf = (totalTime / 1000) / totalDuration;
+
+                // Update final metrics
+                metricRtf.textContent = rtf.toFixed(2);
+                metricRtf.className = 'metric-value' + (rtf > 1 ? ' error' : rtf > 0.8 ? ' warning' : '');
+                metricDuration.textContent = totalDuration.toFixed(1);
+
+                // Show success status
+                streamingIndicator.classList.remove('active');
+                if (rtf < 1 && firstByteTime < 1000) {
+                    showStatus(`Streamed ${totalDuration.toFixed(1)}s audio! RTF: ${rtf.toFixed(2)}, First byte: ${Math.round(firstByteTime)}ms`, 'success');
+                } else {
+                    showStatus(`Generated with RTF: ${rtf.toFixed(2)}, First byte: ${Math.round(firstByteTime)}ms`, rtf >= 1 || firstByteTime >= 1000 ? 'error' : 'success');
+                }
+
+                // Wait for playback to finish
+                if (player) {
+                    await player.close();
+                }
+
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    showStatus('Stopped', 'error');
+                    if (player) player.stop();
+                } else {
+                    console.error('Error:', error);
+                    showStatus(error.message, 'error');
+                }
+                streamingIndicator.classList.remove('active');
+            } finally {
+                // Reset button
+                isPlaying = false;
+                abortController = null;
+                generateBtn.classList.remove('btn-stop');
+                generateBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    Generate
+                `;
+            }
+        });
+
+        function showStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = 'status visible ' + type;
+        }
+
+        function hideStatus() {
+            statusDiv.className = 'status';
+        }
+
+        // Keyboard shortcut: Ctrl+Enter to generate
+        textInput.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                generateBtn.click();
+            }
+        });
+    </script>
+</body>
+</html>
